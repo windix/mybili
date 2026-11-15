@@ -15,6 +15,7 @@ Route::get('/videos/{id}', [VideoController::class, 'show']);
 Route::get('/videos', [VideoController::class, 'index']);
 Route::delete('/videos/{id}', [VideoController::class, 'destroy']);
 Route::post('/videos/{id}/danmaku/refresh', [VideoController::class, 'refreshDanmaku']);
+Route::post('/videos/{id}/redownload', [VideoController::class, 'redownload']);
 Route::get('/danmaku', [VideoController::class, 'danmaku']);
 Route::get('/progress', [VideoController::class, 'progress']);
 Route::get('/cookie/exist', [CookieController::class, 'checkFileExist']);

@@ -153,10 +153,7 @@ class DownloadVideoPartFileAction
 
         if ($probe->quality_status === 'downgraded') {
             @unlink($tmpPath);
-            $names = array_map(
-                fn ($item) => is_int($item) ? ($this->downloadQualityInspector->qualityName($item) ?? (string) $item) : $item,
-                $probe->missing_qualities ?? []
-            );
+            $names = $this->downloadQualityInspector->missingNames($probe->missing_qualities);
             throw new RedownloadNotImprovedException(sprintf('重新下载仍被降级（缺少 %s），可能是 cookie 未生效，已保留原文件', implode('、', $names)));
         }
 

@@ -3,6 +3,7 @@ namespace App\Listeners;
 
 use App\Contracts\TelegramBotServiceInterface;
 use App\Events\VideoPartDownloaded;
+use App\Services\DownloadQualityInspector;
 use App\Services\VideoManager\Contracts\VideoServiceInterface;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Laravel\Horizon\Contracts\Silenced;
@@ -57,8 +58,18 @@ class SendVideoDownloadedMessage implements ShouldQueue, Silenced
 💾 <b>File Size</b>: {$fileSize}
 🔗 <b>Source</b>: <a href='https://www.bilibili.com/video/{$video->bvid}'>View on Bilibili</a>
 
-✅ <i>Download completed successfully!</i>
+✅ <i>Download completed successfully!</i>{$this->buildQualityWarning($videoPart)}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         ";
+    }
+
+    private function buildQualityWarning($videoPart): string
+    {
+        if ($videoPart->quality_status !== 'downgraded') {
+            return '';
+        }
+        $names = app(DownloadQualityInspector::class)->missingNames($videoPart->missing_qualities);
+
+        return "\n⚠️ <b>Quality downgraded</b>: missing " . htmlspecialchars(implode(', ', $names)) . ' — cookie may not be effective';
     }
 }

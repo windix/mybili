@@ -30,6 +30,19 @@ class DownloadQualityInspector
     }
 
     /**
+     * 缺失档位（qn 或未识别名称）→ 显示名称
+     *
+     * @return string[]
+     */
+    public function missingNames(?array $missing): array
+    {
+        return array_map(
+            fn ($item) => is_int($item) ? ($this->qualityName($item) ?? (string) $item) : (string) $item,
+            $missing ?? []
+        );
+    }
+
+    /**
      * @return array{qn: ?int, format_id: ?string}
      */
     public function parseInfoJson(array $info): array

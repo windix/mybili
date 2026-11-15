@@ -5,6 +5,7 @@ use App\Events\VideoUpdated;
 use App\Models\Danmaku;
 use App\Models\Video;
 use App\Models\VideoPart;
+use App\Services\DownloadQualityInspector;
 use App\Services\DownloadQueueService;
 use App\Services\DownloadVideoService;
 use App\Services\MediaProbeService;
@@ -93,6 +94,12 @@ class VideoService implements VideoServiceInterface
             }
         }
 
+        if (($conditions['quality'] ?? '') === 'downgraded') {
+            $query->whereHas('parts', function ($query) {
+                $query->where('quality_status', 'downgraded');
+            });
+        }
+
         if (isset($conditions['fav_id'])) {
             if (intval($conditions['fav_id']) > 0) {
                 $query->whereHas('favorite', function ($query) use ($conditions) {
@@ -140,6 +147,9 @@ class VideoService implements VideoServiceInterface
             ]];
         }
 
+        /** @var DownloadQualityInspector $inspector */
+        $inspector = app(DownloadQualityInspector::class);
+
         $list = [];
         foreach ($video->parts as $videoPart) {
             $list[] = [
@@ -149,6 +159,10 @@ class VideoService implements VideoServiceInterface
                 'title'      => $videoPart['part'] ?? 'P' . $videoPart['page'],
                 'downloaded' => (bool) $videoPart['video_download_path'],
                 'media_info' => $videoPart['video_download_path'] ? $mediaProbeService->fillVideoPart($videoPart) : null,
+                'download_qn'           => $videoPart->download_qn,
+                'quality_name'          => $inspector->qualityName($videoPart->download_qn),
+                'quality_status'        => $videoPart->quality_status,
+                'missing_quality_names' => $inspector->missingNames($videoPart->missing_qualities),
             ];
         }
 
@@ -255,6 +269,30 @@ class VideoService implements VideoServiceInterface
             $audioPart->media_info          = null;
             $audioPart->save();
         }
+    }
+
+    public function redownloadVideos(array $ids): int
+    {
+        /** @var DownloadQueueService $queueService */
+        $queueService = app(DownloadQueueService::class);
+        $queued       = 0;
+
+        foreach (Video::query()->whereIn('id', $ids)->with('parts')->get() as $video) {
+            if ($video->isAudio()) {
+                continue;
+            }
+            foreach ($video->parts as $videoPart) {
+                if (! $videoPart->video_download_path) {
+                    continue;
+                }
+                $queueService->enqueueVideo($videoPart, 0, true);
+                $queued++;
+            }
+        }
+
+        Log::info('Redownload videos queued', ['ids' => $ids, 'queued' => $queued]);
+
+        return $queued;
     }
 
     private function enqueueVideoDownloadTasks(Video $video): void
