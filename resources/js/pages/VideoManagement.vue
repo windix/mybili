@@ -79,6 +79,17 @@
                                 <option value="yes">{{ t('videoManagement.multiPartOnly') }}</option>
                             </select>
                         </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                {{ t('videoManagement.quality') }}
+                            </label>
+                            <select v-model="filters.quality"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <option value="all">{{ t('videoManagement.allQuality') }}</option>
+                                <option value="downgraded">{{ t('videoManagement.downgradedOnly') }}</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div class="flex flex-wrap gap-3 mt-4">
@@ -86,6 +97,10 @@
                             class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors">
                             {{ selectedVideos.size === filteredVideos.length && filteredVideos.length > 0
                                 ? t('videoManagement.deselectAll') : t('videoManagement.selectAll') }}
+                        </button>
+                        <button v-if="selectedVideos.size > 0" @click="redownloadSelected" :disabled="redownloading"
+                            class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-colors disabled:opacity-50">
+                            {{ t('videoManagement.redownloadSelected') }} ({{ selectedVideos.size }})
                         </button>
                         <button v-if="selectedVideos.size > 0" @click="confirmBatchDelete"
                             class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors">
@@ -237,7 +252,7 @@ import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Image from '@/components/Image.vue'
 import { formatTimestamp } from '../lib/helper'
-import { deleteVideo, getVideoList } from '@/api/video'
+import { deleteVideo, getVideoList, redownloadVideo } from '@/api/video'
 import { getFavList, type Favorite, type Video as VideoType } from '@/api/fav'
 
 const { t } = useI18n()
@@ -267,6 +282,7 @@ const filters = ref({
     status: 'all',
     downloaded: 'all',
     multiPart: 'all',
+    quality: 'all',
 })
 
 const filteredVideos = computed(() => videoList.value)
@@ -284,7 +300,8 @@ const resetFilters = () => {
         favId: '',
         status: 'all',
         downloaded: 'all',
-        multiPart: 'all'
+        multiPart: 'all',
+        quality: 'all',
     }
     selectedVideos.value.clear()
     resetAndLoad()
@@ -317,6 +334,26 @@ const toggleSelection = (id: number) => {
 const confirmDelete = (video: VideoType) => {
     deleteTarget.value = video
     showDeleteDialog.value = true
+}
+
+const redownloading = ref(false)
+
+const redownloadSelected = async () => {
+    const ids = Array.from(selectedVideos.value)
+    if (ids.length === 0) return
+    if (!confirm(t('videoManagement.redownloadConfirm', { count: ids.length }))) return
+
+    redownloading.value = true
+    try {
+        const res = await redownloadVideo(ids[0], ids.slice(1))
+        alert(t('videoManagement.redownloadQueued', { count: res.queued ?? 0 }))
+        selectedVideos.value.clear()
+    } catch (error) {
+        console.error('Redownload failed:', error)
+        alert(t('video.redownloadFailed'))
+    } finally {
+        redownloading.value = false
+    }
 }
 
 const confirmBatchDelete = () => {
@@ -366,6 +403,7 @@ const loadVideos = async (sleep: number = 500, isReset: boolean = false) => {
                 status: filters.value.status,
                 downloaded: filters.value.downloaded,
                 multi_part: filters.value.multiPart,
+                quality: filters.value.quality === 'all' ? '' : filters.value.quality,
                 fav_id: filters.value.favId,
             })
 
@@ -406,7 +444,7 @@ const handleScroll = () => {
     }
 }
 
-watch(() => [filters.value.status, filters.value.downloaded, filters.value.multiPart, filters.value.favId], resetAndLoad, { deep: true })
+watch(() => [filters.value.status, filters.value.downloaded, filters.value.multiPart, filters.value.favId, filters.value.quality], resetAndLoad, { deep: true })
 
 onMounted(() => {
     getFavList().then(res => favList.value = res)

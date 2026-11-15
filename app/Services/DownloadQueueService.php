@@ -13,7 +13,7 @@ class DownloadQueueService
     /**
      * 将视频分P加入下载队列，已存在则忽略
      */
-    public function enqueueVideo(VideoPart $videoPart, int $priority = 0): ?DownloadQueue
+    public function enqueueVideo(VideoPart $videoPart, int $priority = 0, bool $redownload = false): ?DownloadQueue
     {
         $uniqueKey = DownloadQueue::buildUniqueKey(DownloadQueue::TYPE_VIDEO, $videoPart->id);
 
@@ -22,6 +22,9 @@ class DownloadQueueService
             ->first();
 
         if ($existing) {
+            if ($redownload && ! $existing->redownload) {
+                $existing->update(['redownload' => true]);
+            }
             return null;
         }
 
@@ -31,6 +34,7 @@ class DownloadQueueService
                 'type'          => DownloadQueue::TYPE_VIDEO,
                 'video_id'      => $videoPart->video_id,
                 'video_part_id' => $videoPart->id,
+                'redownload'    => $redownload,
                 'status'        => DownloadQueue::STATUS_PENDING,
                 'priority'      => $priority,
                 'retry_count'   => 0,

@@ -8,6 +8,10 @@ enum SettingKey: string {
     case MULTI_PARTITION_DOWNLOAD_ENABLED = 'multi_partition_download_enabled';
     case HUMAN_READABLE_NAME_ENABLED = 'human_readable_name_enabled';
 
+    // 画质偏好
+    case VIDEO_MAX_RESOLUTION   = 'video_max_resolution';
+    case VIDEO_CODEC_PREFERENCE = 'video_codec_preference';
+
     case USAGE_ANALYTICS_ENABLED = 'usage_analytics_enabled';
 
     case FAVORITE_EXCLUDE = 'fav_exclude';
@@ -35,6 +39,8 @@ enum SettingKey: string {
             self::DANMAKU_DOWNLOAD_ENABLED => '弹幕下载',
             self::MULTI_PARTITION_DOWNLOAD_ENABLED => '多分P下载',
             self::HUMAN_READABLE_NAME_ENABLED => '可读文件名',
+            self::VIDEO_MAX_RESOLUTION => '画质上限',
+            self::VIDEO_CODEC_PREFERENCE => '编码偏好',
             self::USAGE_ANALYTICS_ENABLED => '使用情况统计',
 
             self::FAVORITE_EXCLUDE => '收藏夹排除',

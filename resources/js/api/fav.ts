@@ -22,6 +22,7 @@ export interface MediaInfo {
     bitrate: number | null
     video: {
         codec: string
+        tag?: string | null
         profile: string | null
         width: number
         height: number
@@ -46,6 +47,10 @@ export interface VideoPartType {
     part: number
     downloaded: boolean
     media_info?: MediaInfo | null
+    download_qn?: number | null
+    quality_name?: string | null
+    quality_status?: 'ok' | 'downgraded' | null
+    missing_quality_names?: string[]
 }
 
 export interface Video {

@@ -15,6 +15,8 @@ interface VideoServiceInterface
 
     public function getAllPartsVideoForUser(Video $video): array;
 
+    public function redownloadVideos(array $ids): int;
+
     public function getVideosStat(array $conditions = []): array;
 
     public function getVideoPartFileSize(VideoPart $videoPart): int;

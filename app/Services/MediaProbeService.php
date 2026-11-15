@@ -122,6 +122,7 @@ class MediaProbeService
             if ($type === 'video' && $video === null && empty($stream['disposition']['attached_pic'])) {
                 $video = [
                     'codec'   => (string) ($stream['codec_name'] ?? ''),
+                    'tag'     => $stream['codec_tag_string'] ?? null,
                     'profile' => $stream['profile'] ?? null,
                     'width'   => (int) ($stream['width'] ?? 0),
                     'height'  => (int) ($stream['height'] ?? 0),

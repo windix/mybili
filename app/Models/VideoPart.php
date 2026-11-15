@@ -7,10 +7,12 @@ use Storage;
 class VideoPart extends Model
 {
     protected $table    = 'video_parts';
-    protected $fillable = ['video_id', 'cid', 'page', 'from', 'part', 'duration', 'vid', 'weblink', 'width', 'height', 'rotate', 'first_frame', 'created_at', 'video_downloaded_at','danmaku_downloaded_at', 'media_info'];
+    protected $fillable = ['video_id', 'cid', 'page', 'from', 'part', 'duration', 'vid', 'weblink', 'width', 'height', 'rotate', 'first_frame', 'created_at', 'video_downloaded_at','danmaku_downloaded_at', 'media_info', 'download_qn', 'download_format_id', 'quality_status', 'missing_qualities'];
 
     protected $casts = [
-        'media_info' => 'array',
+        'media_info'        => 'array',
+        'missing_qualities' => 'array',
+        'download_qn'       => 'integer',
     ];
 
 

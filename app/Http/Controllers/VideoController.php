@@ -29,6 +29,7 @@ class VideoController extends Controller
             'multi_part' => 'nullable|string',
             'fav_id' => 'nullable|integer',
             'page_size' => 'nullable|integer|min:1',
+            'quality' => 'nullable|string|in:downgraded',
         ]);
         $page = $data['page'] ?? 1;
         $perPage = 30;
@@ -38,6 +39,7 @@ class VideoController extends Controller
             'downloaded' => $data['downloaded'] ?? '',
             'multi_part' => $data['multi_part'] ?? '',
             'fav_id' => $data['fav_id'] ?? '',
+            'quality' => $data['quality'] ?? '',
         ], $page, intval($data['page_size'] ?? $perPage));
 
         return response()->json([
@@ -81,6 +83,26 @@ class VideoController extends Controller
                 'message' => 'Video deletion failed',
             ]);
         }
+    }
+
+    /**
+     * 按当前画质偏好重新下载视频的已下载分P（未被降级才替换原文件）
+     */
+    public function redownload(Request $request, int $id)
+    {
+        if (config('services.bilibili.setting_read_only')) {
+            abort(403);
+        }
+        $validated = $request->validate([
+            'extend_ids'   => 'nullable|array',
+            'extend_ids.*' => 'integer',
+        ]);
+        $ids = array_map('intval', array_merge([$id], $validated['extend_ids'] ?? []));
+
+        return response()->json([
+            'code'   => 0,
+            'queued' => $this->videoService->redownloadVideos($ids),
+        ]);
     }
 
     public function show(Request $request, int $id)

@@ -11,7 +11,7 @@ class DownloadVideoJob extends BaseScheduledRateLimitedJob
 
     public $tries = 1;
 
-    public function __construct(public VideoPart $videoPart)
+    public function __construct(public VideoPart $videoPart, public bool $redownload = false)
     {
     }
 
@@ -35,7 +35,12 @@ class DownloadVideoJob extends BaseScheduledRateLimitedJob
                 return;
             }
 
-            app(DownloadVideoPartFileAction::class)->execute($this->videoPart);
+            app(DownloadVideoPartFileAction::class)->execute($this->videoPart, $this->redownload);
+        } catch (\App\Exceptions\RedownloadNotImprovedException $e) {
+            // 重下仍被降级：已保留原文件，直接失败不重试（避免重复下载触发风控）
+            Log::warning('redownload not improved', ['video_part_id' => $this->videoPart->id, 'message' => $e->getMessage()]);
+            app(DownloadQueueService::class)->markFailedByVideoPart($this->videoPart->id, $e->getMessage());
+            return;
         } catch (\App\Exceptions\ApiGetVideoStatusException $e) {
             // 稿件状态异常，跳过下载
             Log::error('video manuscript status abnormal', ['video_id' => $this->videoPart->video_id, 'part' => $this->videoPart->part, 'message' => $e->getMessage(), 'code' => $e->getCode()]);

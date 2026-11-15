@@ -18,6 +18,7 @@ export interface VideoListParams {
     downloaded?: string;
     multi_part?: string;
     fav_id?: string;
+    quality?: string;
 }
 
 export interface DeleteVideoOptions {
@@ -88,6 +89,28 @@ export interface RefreshDanmakuResponse {
     /** 失败时由后端返回说明（如音频、无分 P） */
     message?: string;
     parts_queued: number;
+}
+
+export interface RedownloadResponse {
+    code: number;
+    queued?: number;
+    message?: string;
+}
+
+/** 按当前画质偏好重新下载（未被降级才替换原文件） */
+export async function redownloadVideo(id: number, extend_ids?: number[]): Promise<RedownloadResponse> {
+    const response = await fetch(`/api/videos/${id}/redownload`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+        },
+        body: JSON.stringify({ extend_ids: extend_ids ?? [] }),
+    });
+    if (!response.ok) {
+        throw new Error(`redownload failed: ${response.status}`);
+    }
+    return response.json() as Promise<RedownloadResponse>;
 }
 
 export async function refreshVideoDanmaku(videoId: number): Promise<RefreshDanmakuResponse> {
