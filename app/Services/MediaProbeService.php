@@ -1,13 +1,76 @@
 <?php
 namespace App\Services;
 
+use App\Models\AudioPart;
+use App\Models\VideoPart;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /**
  * 使用 ffprobe 读取本地媒体文件的实际规格（分辨率、编码、码率等）
  */
 class MediaProbeService
 {
+    /**
+     * 已下载分P的媒体信息：已有则直接返回，缺失（或 $force）时 probe 并保存
+     */
+    public function fillVideoPart(VideoPart $part, bool $force = false): ?array
+    {
+        $absPath = $this->resolvePath($part->video_download_path);
+        if (! $absPath || ! is_file($absPath)) {
+            return null;
+        }
+        if ($part->media_info && ! $force) {
+            return $part->media_info;
+        }
+
+        $info = $this->probe($absPath);
+        if ($info) {
+            $part->media_info = $info;
+            $part->save();
+        }
+
+        return $info;
+    }
+
+    public function fillAudioPart(AudioPart $part, bool $force = false): ?array
+    {
+        $absPath = $this->resolvePath($part->audio_download_path);
+        if (! $absPath || ! is_file($absPath)) {
+            return null;
+        }
+        if ($part->media_info && ! $force) {
+            return $part->media_info;
+        }
+
+        $info = $this->probe($absPath);
+        if ($info) {
+            $part->media_info = $info;
+            $part->save();
+        }
+
+        return $info;
+    }
+
+    /**
+     * 将库里保存的下载路径（相对 public 磁盘，可能带 /storage/ 前缀）转换为绝对路径
+     */
+    public function resolvePath(?string $storedPath): ?string
+    {
+        if ($storedPath === null || $storedPath === '') {
+            return null;
+        }
+        if (Str::startsWith($storedPath, '/') && is_file($storedPath)) {
+            return $storedPath;
+        }
+        $relative = Str::startsWith($storedPath, '/storage/')
+            ? Str::after($storedPath, '/storage/')
+            : ltrim($storedPath, '/');
+
+        return Storage::disk('public')->path($relative);
+    }
+
     public function probe(string $absPath): ?array
     {
         if (! is_file($absPath)) {

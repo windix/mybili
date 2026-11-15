@@ -7,7 +7,11 @@ use Illuminate\Support\Facades\Storage;
 class AudioPart extends Model
 {
     protected $table    = 'audio_parts';
-    protected $fillable = ['video_id', 'sid', 'duration', 'audio_downloaded_at', 'audio_download_path'];
+    protected $fillable = ['video_id', 'sid', 'duration', 'audio_downloaded_at', 'audio_download_path', 'media_info'];
+
+    protected $casts = [
+        'media_info' => 'array',
+    ];
 
     protected $appends = [
         'audio_download_url',
