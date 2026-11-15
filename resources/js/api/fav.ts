@@ -15,12 +15,37 @@ export interface Favorite {
     cover_info: Cover|null;
 }
 
+export interface MediaInfo {
+    container: string | null
+    size: number | null
+    duration: number | null
+    bitrate: number | null
+    video: {
+        codec: string
+        profile: string | null
+        width: number
+        height: number
+        fps: number | null
+        bitrate: number | null
+    } | null
+    audio: {
+        codec: string
+        profile: string | null
+        bitrate: number | null
+        sample_rate: number | null
+        channels: number | null
+        channel_layout: string | null
+    } | null
+    probed_at: string
+}
+
 export interface VideoPartType {
     id: number
     url: string
     title: string
     part: number
     downloaded: boolean
+    media_info?: MediaInfo | null
 }
 
 export interface Video {

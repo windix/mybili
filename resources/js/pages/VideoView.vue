@@ -59,6 +59,12 @@
                     <div>
                         <h2 class="text-2xl font-bold text-gray-800 mb-2 leading-tight">{{ videoInfo.title }}</h2>
                         <div class="w-16 h-1 bg-gradient-to-r from-pink-500 to-purple-600 rounded-full"></div>
+                        <div v-if="mediaInfoSegments.length"
+                            class="mt-3 flex flex-wrap items-center gap-1.5 text-xs text-gray-600">
+                            <span class="text-gray-500">{{ t('video.mediaInfoLabel') }}</span>
+                            <span v-for="segment in mediaInfoSegments" :key="segment"
+                                class="bg-gray-100 rounded px-2 py-0.5">{{ segment }}</span>
+                        </div>
                     </div>
 
                     <!-- UP主信息 -->
@@ -297,6 +303,7 @@ import Player from '../components/Player.vue';
 import Breadcrumbs from '../components/Breadcrumbs.vue';
 import type { Video, VideoPartType } from '@/api/fav';
 import { deleteVideo, getVideoDanmaku, getVideoInfo, refreshVideoDanmaku } from '@/api/video';
+import { formatMediaInfo } from '@/lib/mediaInfo';
 
 const { t } = useI18n();
 const toast = useToast();
@@ -437,6 +444,9 @@ const isAudioVideo = computed(() => Number(videoInfo.value?.type) === 12)
 const notfound = ref(false)
 
 const currentPart = ref<VideoPartType | null>(null)
+const mediaInfoSegments = computed(() =>
+    currentPart.value?.media_info ? formatMediaInfo(currentPart.value.media_info, t) : []
+)
 
 const danmaku = ref<any[]>([])
 const showDeleteModal = ref(false)

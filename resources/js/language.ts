@@ -170,6 +170,9 @@ const messages = {
         video: {
             title: '视频',
             videoParts: '视频选集',
+            mediaInfoLabel: '文件信息',
+            mediaMono: '单声道',
+            mediaStereo: '立体声',
             videoDescription: '视频简介',
             publishTime: '发布时间',
             favoriteTime: '收藏时间',
@@ -615,6 +618,9 @@ const messages = {
         video: {
             title: 'Video',
             videoParts: 'Video Parts',
+            mediaInfoLabel: 'File info',
+            mediaMono: 'Mono',
+            mediaStereo: 'Stereo',
             videoDescription: 'Video Description',
             publishTime: 'Publish Time',
             favoriteTime: 'Favorite Time',
