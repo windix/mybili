@@ -27,6 +27,8 @@ class SettingsController extends Controller
                 'selected' => [],
             ],
             SettingKey::MULTI_PARTITION_DOWNLOAD_ENABLED->value => 'off',
+            SettingKey::VIDEO_MAX_RESOLUTION->value             => 'unlimited',
+            SettingKey::VIDEO_CODEC_PREFERENCE->value           => 'hevc',
             SettingKey::NAME_EXCLUDE->value                     => [
                 'contains' => '',
                 'regex'    => '',
@@ -71,6 +73,8 @@ class SettingsController extends Controller
         }
         $data = $request->validate([
             SettingKey::MULTI_PARTITION_DOWNLOAD_ENABLED->value                 => 'required|string|in:on,off',
+            SettingKey::VIDEO_MAX_RESOLUTION->value                             => 'sometimes|string|in:unlimited,2160,1440,1080,720',
+            SettingKey::VIDEO_CODEC_PREFERENCE->value                           => 'sometimes|string|in:hevc,avc,av1',
             SettingKey::DANMAKU_DOWNLOAD_ENABLED->value                         => 'required|string|in:on,off',
             SettingKey::VIDEO_DOWNLOAD_ENABLED->value                           => 'required|string|in:on,off',
             SettingKey::FAVORITE_SYNC_ENABLED->value                            => 'required|string|in:on,off',
