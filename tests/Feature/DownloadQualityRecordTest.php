@@ -88,4 +88,52 @@ class DownloadQualityRecordTest extends TestCase
         $this->assertStringContainsString('vcodec:h265', $action->commands[0]);
         $this->assertStringContainsString('--write-info-json', $action->commands[0]);
     }
+
+    public function test_command_disables_playlist_metafiles(): void
+    {
+        [$part, $action] = $this->prepare(205);
+
+        $action->execute($part);
+
+        $this->assertStringContainsString('--no-write-playlist-metafiles', $action->commands[0]);
+    }
+
+    public function test_412_suspend_requires_http_error(): void
+    {
+        $suspended = 0;
+        $this->mock(\App\Services\BilibiliSuspendService::class, function ($mock) use (&$suspended) {
+            $mock->shouldReceive('setSuspend')->andReturnUsing(function () use (&$suspended) { $suspended++; return true; });
+        });
+        [$part, $action]  = $this->prepare(206);
+        $action->exitCode = 1;
+        $action->fakeOutput = ['[download]  12.0% of ~ 412.30MiB at 1.00MiB/s', 'ERROR: unable to merge'];
+
+        try {
+            $action->execute($part);
+        } catch (\Exception) {
+        }
+        $this->assertSame(0, $suspended);
+
+        $action->fakeOutput = ['ERROR: [BiliBili] 206: Unable to download JSON metadata: HTTP Error 412: Precondition Failed'];
+        try {
+            $action->execute($part);
+        } catch (\Exception) {
+        }
+        $this->assertSame(1, $suspended);
+    }
+
+    public function test_download_error_message_prefers_error_lines(): void
+    {
+        [$part, $action]    = $this->prepare(207);
+        $action->exitCode   = 1;
+        $action->fakeOutput = array_merge(array_fill(0, 50, '[download] progress noise line that is fairly long'), ['ERROR: [BiliBili] boom']);
+
+        try {
+            $action->execute($part);
+            $this->fail('expected exception');
+        } catch (\Exception $e) {
+            $this->assertStringContainsString('ERROR: [BiliBili] boom', $e->getMessage());
+            $this->assertStringNotContainsString('progress noise', $e->getMessage());
+        }
+    }
 }

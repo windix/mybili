@@ -163,4 +163,58 @@ class RedownloadTest extends TestCase
         $this->assertSame(0, $item->retry_count);
         $this->assertStringContainsString('重新下载仍被降级', $item->error_msg);
     }
+
+    public function test_redownload_keeps_old_when_new_file_unplayable(): void
+    {
+        [$part, $finalPath] = $this->downloadedPart(308);
+        $garbage            = tempnam(sys_get_temp_dir(), 'garbage');
+        file_put_contents($garbage, 'not a video');
+        $this->createdFiles[] = $garbage;
+        $action             = $this->fakeAction();
+        $action->sourceFile = $garbage;
+
+        try {
+            $action->execute($part, true);
+            $this->fail('expected exception');
+        } catch (\Exception $e) {
+            $this->assertNotInstanceOf(RedownloadNotImprovedException::class, $e);
+        }
+
+        $this->assertSame('old-file', file_get_contents($finalPath));
+        $this->assertFileDoesNotExist(preg_replace('/\.mp4$/', '.redownload.mp4', $finalPath));
+    }
+
+    public function test_redownload_keeps_old_when_no_file_produced(): void
+    {
+        [$part, $finalPath] = $this->downloadedPart(309);
+        $action             = $this->fakeAction();
+        $action->sourceFile = null;
+
+        try {
+            $action->execute($part, true);
+            $this->fail('expected exception');
+        } catch (\Exception $e) {
+            $this->assertStringContainsString('未找到', $e->getMessage());
+        }
+
+        $this->assertSame('old-file', file_get_contents($finalPath));
+    }
+
+    public function test_redownload_keeps_old_when_duration_mismatch(): void
+    {
+        [$part, $finalPath] = $this->downloadedPart(310);
+        $part->duration     = 600;
+        $part->save();
+        $action             = $this->fakeAction();
+        $action->sourceFile = $this->sourceMp4();
+
+        try {
+            $action->execute($part, true);
+            $this->fail('expected exception');
+        } catch (\Exception $e) {
+            $this->assertStringContainsString('时长', $e->getMessage());
+        }
+
+        $this->assertSame('old-file', file_get_contents($finalPath));
+    }
 }

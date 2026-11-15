@@ -89,8 +89,7 @@ class DownloadVideoPartFileAction
 
             list($output, $result) = $this->execDownloadVideo($url, $savePath, $videoPart->page);
             if ($result != 0) {
-                $msg = implode('', $output);
-                throw new \Exception("下载异常:\n" . $msg);
+                throw new \Exception("下载异常:\n" . self::summarizeOutput($output));
             }
             Log::info('download video output', ['video_id' => $video->id, 'part' => $videoPart->page, 'output' => $output]);
             Log::info('download video success', ['video_id' => $video->id, 'part' => $videoPart->page, 'savePath' => $savePath]);
@@ -105,18 +104,18 @@ class DownloadVideoPartFileAction
     {
         $formatArgs = $this->videoFormatSelector->fromSettings();
         if (config('services.bilibili.ignore_cookies')) {
-            $command = sprintf('yt-dlp_linux %s --write-info-json --playlist-items %s -o %s %s', $formatArgs, escapeshellarg($page), escapeshellarg($savePath), escapeshellarg($url));
+            $command = sprintf('yt-dlp_linux %s --write-info-json --no-write-playlist-metafiles --playlist-items %s -o %s %s', $formatArgs, escapeshellarg($page), escapeshellarg($savePath), escapeshellarg($url));
         } else {
             // 写入cookie到文件
             $cookiePath = storage_path('app/cookie.txt');
             file_put_contents($cookiePath, $this->settingsService->get(SettingKey::COOKIES_CONTENT));
-            $command = sprintf('yt-dlp_linux %s --write-info-json --playlist-items %s --cookies=%s -o %s %s', $formatArgs, escapeshellarg($page), escapeshellarg($cookiePath), escapeshellarg($savePath), escapeshellarg($url));
+            $command = sprintf('yt-dlp_linux %s --write-info-json --no-write-playlist-metafiles --playlist-items %s --cookies=%s -o %s %s', $formatArgs, escapeshellarg($page), escapeshellarg($cookiePath), escapeshellarg($savePath), escapeshellarg($url));
         }
         [$output, $result] = $this->runYtDlp($command);
 
         if ($result != 0) {
-            $msg = implode('', $output);
-            if (strpos($msg, "412") !== false) {
+            $msg = implode("\n", $output);
+            if (preg_match('/HTTP Error 412/', $msg)) {
                 Log::error("Check 412 error, set suspend for bilibili high rate limit", ['msg' => $msg, 'url' => $url, 'page' => $page]);
                 $this->bilibiliSuspendService->setSuspend();
             }
@@ -145,8 +144,10 @@ class DownloadVideoPartFileAction
         [$output, $result] = $this->execDownloadVideo($url, $tmpPath, $videoPart->page);
         if ($result != 0) {
             @unlink($tmpPath);
-            throw new \Exception("下载异常:\n" . implode('', $output));
+            throw new \Exception("下载异常:\n" . self::summarizeOutput($output));
         }
+
+        $this->assertPlayableDownload($tmpPath, $videoPart);
 
         $probe = $videoPart->replicate();
         $this->recordQuality($probe, $tmpPath, $output);
@@ -165,6 +166,41 @@ class DownloadVideoPartFileAction
         $this->updateVideoPartDownloaded($videoPart, $finalPath, true);
 
         event(new VideoPartDownloaded($videoPart));
+    }
+
+    /**
+     * 替换原文件前确认新文件存在、可被 ffprobe 读取且时长与分P一致，否则删除临时文件并报错（原文件保留）
+     */
+    protected function assertPlayableDownload(string $tmpPath, VideoPart $videoPart): void
+    {
+        $fail = function (string $reason) use ($tmpPath) {
+            @unlink($tmpPath);
+            @unlink(self::infoJsonPath($tmpPath));
+            throw new \Exception("重新下载结果无效（{$reason}），已保留原文件");
+        };
+
+        if (! is_file($tmpPath)) {
+            $fail('未找到下载文件');
+        }
+        $info = $this->mediaProbeService->probe($tmpPath);
+        if (! $info || ! $info['video']) {
+            $fail('无法读取视频流');
+        }
+        $expected = (int) $videoPart->duration;
+        $actual   = (float) ($info['duration'] ?? 0);
+        if ($expected > 0 && abs($actual - $expected) > max(5, $expected * 0.1)) {
+            $fail(sprintf('时长不一致：%.0fs，期望 %ds', $actual, $expected));
+        }
+    }
+
+    /**
+     * 失败时的简短说明：优先 ERROR 行，否则取最后几行（避免进度输出淹没真正的错误）
+     */
+    public static function summarizeOutput(array $output): string
+    {
+        $errors = array_values(array_filter($output, fn ($line) => str_starts_with(ltrim((string) $line), 'ERROR')));
+
+        return implode("\n", $errors ?: array_slice($output, -5));
     }
 
     /**
