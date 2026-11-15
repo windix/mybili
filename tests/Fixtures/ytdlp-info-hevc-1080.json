@@ -1,0 +1,141 @@
+{
+ "id": "BV1vAMX68Egb",
+ "format_id": "30077+30280",
+ "formats": [
+  {
+   "format_id": "30216",
+   "quality": null,
+   "vcodec": "none",
+   "acodec": "mp4a.40.2",
+   "height": null,
+   "width": null,
+   "dynamic_range": null
+  },
+  {
+   "format_id": "30232",
+   "quality": null,
+   "vcodec": "none",
+   "acodec": "mp4a.40.2",
+   "height": null,
+   "width": null,
+   "dynamic_range": null
+  },
+  {
+   "format_id": "30280",
+   "quality": null,
+   "vcodec": "none",
+   "acodec": "mp4a.40.2",
+   "height": null,
+   "width": null,
+   "dynamic_range": null
+  },
+  {
+   "format_id": "100022",
+   "quality": 16,
+   "vcodec": "av01.0.08M.08.0.110.01.01.01.0",
+   "acodec": "none",
+   "height": 360,
+   "width": 640,
+   "dynamic_range": "SDR"
+  },
+  {
+   "format_id": "30016",
+   "quality": 16,
+   "vcodec": "avc1.64001E",
+   "acodec": "none",
+   "height": 360,
+   "width": 640,
+   "dynamic_range": "SDR"
+  },
+  {
+   "format_id": "30011",
+   "quality": 16,
+   "vcodec": "hvc1.1.6.L120.90",
+   "acodec": "none",
+   "height": 360,
+   "width": 640,
+   "dynamic_range": "SDR"
+  },
+  {
+   "format_id": "100023",
+   "quality": 32,
+   "vcodec": "av01.0.08M.08.0.110.01.01.01.0",
+   "acodec": "none",
+   "height": 480,
+   "width": 852,
+   "dynamic_range": "SDR"
+  },
+  {
+   "format_id": "30032",
+   "quality": 32,
+   "vcodec": "avc1.64001F",
+   "acodec": "none",
+   "height": 480,
+   "width": 852,
+   "dynamic_range": "SDR"
+  },
+  {
+   "format_id": "30033",
+   "quality": 32,
+   "vcodec": "hvc1.1.6.L120.90",
+   "acodec": "none",
+   "height": 480,
+   "width": 852,
+   "dynamic_range": "SDR"
+  },
+  {
+   "format_id": "100024",
+   "quality": 64,
+   "vcodec": "av01.0.08M.08.0.110.01.01.01.0",
+   "acodec": "none",
+   "height": 720,
+   "width": 1280,
+   "dynamic_range": "SDR"
+  },
+  {
+   "format_id": "30064",
+   "quality": 64,
+   "vcodec": "avc1.640028",
+   "acodec": "none",
+   "height": 720,
+   "width": 1280,
+   "dynamic_range": "SDR"
+  },
+  {
+   "format_id": "30066",
+   "quality": 64,
+   "vcodec": "hvc1.1.6.L120.90",
+   "acodec": "none",
+   "height": 720,
+   "width": 1280,
+   "dynamic_range": "SDR"
+  },
+  {
+   "format_id": "100026",
+   "quality": 80,
+   "vcodec": "av01.0.08M.08.0.110.01.01.01.0",
+   "acodec": "none",
+   "height": 1080,
+   "width": 1920,
+   "dynamic_range": "SDR"
+  },
+  {
+   "format_id": "30080",
+   "quality": 80,
+   "vcodec": "avc1.640032",
+   "acodec": "none",
+   "height": 1080,
+   "width": 1920,
+   "dynamic_range": "SDR"
+  },
+  {
+   "format_id": "30077",
+   "quality": 80,
+   "vcodec": "hvc1.1.6.L150.90",
+   "acodec": "none",
+   "height": 1080,
+   "width": 1920,
+   "dynamic_range": "SDR"
+  }
+ ]
+}
