@@ -136,4 +136,32 @@ class DownloadQualityRecordTest extends TestCase
             $this->assertStringNotContainsString('progress noise', $e->getMessage());
         }
     }
+
+    public function test_command_sets_retries(): void
+    {
+        [$part, $action] = $this->prepare(208);
+
+        $action->execute($part);
+
+        $this->assertStringContainsString('--retries 20', $action->commands[0]);
+        $this->assertStringContainsString("--retry-sleep 'exp=1:10'", $action->commands[0]);
+    }
+
+    public function test_new_download_fixes_hev1_tag(): void
+    {
+        [$part, $action] = $this->prepare(209);
+        $hev1 = HevcTagFixerTest::makeVideo('-c:v libx265 -tag:v hev1');
+        if (! $hev1) {
+            $this->markTestSkipped('libx265 not available');
+        }
+        $this->createdFiles[] = $hev1;
+        $action->sourceFile   = $hev1;
+
+        $action->execute($part);
+
+        $part = $part->fresh();
+        $this->assertSame('hvc1', $part->media_info['video']['tag']);
+        $savePath = app(DownloadVideoService::class)->buildVideoPartFilePath($part);
+        $this->assertSame(hash_file('sha256', $savePath), app(DownloadVideoService::class)->getDownloadHash($savePath));
+    }
 }

@@ -217,4 +217,20 @@ class RedownloadTest extends TestCase
 
         $this->assertSame('old-file', file_get_contents($finalPath));
     }
+
+    public function test_redownload_fixes_hev1_tag(): void
+    {
+        [$part, $finalPath] = $this->downloadedPart(311);
+        $hev1               = HevcTagFixerTest::makeVideo('-c:v libx265 -tag:v hev1');
+        if (! $hev1) {
+            $this->markTestSkipped('libx265 not available');
+        }
+        $this->createdFiles[] = $hev1;
+        $action             = $this->fakeAction();
+        $action->sourceFile = $hev1;
+
+        $action->execute($part, true);
+
+        $this->assertSame('hvc1', app(\App\Services\MediaProbeService::class)->probe($finalPath)['video']['tag']);
+    }
 }

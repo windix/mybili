@@ -127,3 +127,8 @@ PR 2（不在本文范围）：杜比视界（无则 HDR 真彩）额外版本�
 - 分辨率上限按档位（qn）过滤，而不是 `height`：竖屏视频的实际高度大于档位标称值，按高度过滤会被误降级且不被检测到。
 - `download_qn` / `download_format_id` / `quality_status` / `missing_qualities` 始终描述磁盘上的那个文件；重下被拒时只在下载队列的 `error_msg` 中说明原因，不改这四列。
 - 重下因画质原因被拒时直接 `markFailedByVideoPart`（不进入 `MAX_RETRIES` 重试）；只有 yt-dlp 本身失败才走原有重试。实现上用独立异常类型区分。
+
+## 追加（2026-11-15，杜比视界实测后，用户决定加入本 PR）
+
+- **hev1 → hvc1**：B 站部分 HEVC 流标记为 `hev1`（如 BV1eTmNY8Eb7 的 4K/1080P HEVC），Apple 设备原生播放器只认 `hvc1`。新下载与重下在完成后，若视频为 HEVC 且标记 `hev1`，用 `ffmpeg -c copy -tag:v hvc1 -strict unofficial` 无损重新封装；失败只记日志、保留原文件。`media_info.video.tag` 记录 `codec_tag_string`。
+- **重试**：yt-dlp 增加 `--retries 20 --retry-sleep exp=1:10`。实测同一网络下 B 站 CDN 会返回 `HTTP Error 567` 或中途断连。退避上限 10 秒，避免单次下载超过下载队列 10 分钟卡死阈值。

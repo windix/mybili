@@ -11,6 +11,7 @@ use App\Services\BilibiliSuspendService;
 use App\Services\DownloadFilterService;
 use App\Services\DownloadQualityInspector;
 use App\Services\DownloadVideoService;
+use App\Services\HevcTagFixer;
 use App\Services\MediaProbeService;
 use App\Services\SettingsService;
 use App\Services\VideoFormatSelector;
@@ -19,6 +20,8 @@ use Log;
 
 class DownloadVideoPartFileAction
 {
+    /** 网络错误（含 B 站 CDN 567）重试间隔：1,2,4,8 秒递增，最长 10 秒 */
+    public const RETRY_SLEEP = 'exp=1:10';
 
     public function __construct(
         public BilibiliService $bilibiliService,
@@ -28,7 +31,8 @@ class DownloadVideoPartFileAction
         public DownloadVideoService $downloadVideoService,
         public MediaProbeService $mediaProbeService,
         public VideoFormatSelector $videoFormatSelector,
-        public DownloadQualityInspector $downloadQualityInspector
+        public DownloadQualityInspector $downloadQualityInspector,
+        public HevcTagFixer $hevcTagFixer
     ) {
 
     }
@@ -93,6 +97,7 @@ class DownloadVideoPartFileAction
             }
             Log::info('download video output', ['video_id' => $video->id, 'part' => $videoPart->page, 'output' => $output]);
             Log::info('download video success', ['video_id' => $video->id, 'part' => $videoPart->page, 'savePath' => $savePath]);
+            $this->hevcTagFixer->fix($savePath);
             $this->recordQuality($videoPart, $savePath, $output);
             $this->updateVideoPartDownloaded($videoPart, $savePath, true);
 
@@ -104,12 +109,12 @@ class DownloadVideoPartFileAction
     {
         $formatArgs = $this->videoFormatSelector->fromSettings();
         if (config('services.bilibili.ignore_cookies')) {
-            $command = sprintf('yt-dlp_linux %s --write-info-json --no-write-playlist-metafiles --playlist-items %s -o %s %s', $formatArgs, escapeshellarg($page), escapeshellarg($savePath), escapeshellarg($url));
+            $command = sprintf('yt-dlp_linux %s --retries 20 --retry-sleep %s --write-info-json --no-write-playlist-metafiles --playlist-items %s -o %s %s', $formatArgs, escapeshellarg(self::RETRY_SLEEP), escapeshellarg($page), escapeshellarg($savePath), escapeshellarg($url));
         } else {
             // 写入cookie到文件
             $cookiePath = storage_path('app/cookie.txt');
             file_put_contents($cookiePath, $this->settingsService->get(SettingKey::COOKIES_CONTENT));
-            $command = sprintf('yt-dlp_linux %s --write-info-json --no-write-playlist-metafiles --playlist-items %s --cookies=%s -o %s %s', $formatArgs, escapeshellarg($page), escapeshellarg($cookiePath), escapeshellarg($savePath), escapeshellarg($url));
+            $command = sprintf('yt-dlp_linux %s --retries 20 --retry-sleep %s --write-info-json --no-write-playlist-metafiles --playlist-items %s --cookies=%s -o %s %s', $formatArgs, escapeshellarg(self::RETRY_SLEEP), escapeshellarg($page), escapeshellarg($cookiePath), escapeshellarg($savePath), escapeshellarg($url));
         }
         [$output, $result] = $this->runYtDlp($command);
 
@@ -158,6 +163,7 @@ class DownloadVideoPartFileAction
             throw new RedownloadNotImprovedException(sprintf('重新下载仍被降级（缺少 %s），可能是 cookie 未生效，已保留原文件', implode('、', $names)));
         }
 
+        $this->hevcTagFixer->fix($tmpPath);
         rename($tmpPath, $finalPath);
         foreach (['download_qn', 'download_format_id', 'quality_status', 'missing_qualities'] as $column) {
             $videoPart->{$column} = $probe->{$column};

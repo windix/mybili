@@ -22,6 +22,7 @@ export interface MediaInfo {
     bitrate: number | null
     video: {
         codec: string
+        tag?: string | null
         profile: string | null
         width: number
         height: number
