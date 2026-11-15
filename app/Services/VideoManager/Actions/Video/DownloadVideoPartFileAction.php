@@ -9,6 +9,7 @@ use App\Services\BilibiliService;
 use App\Services\BilibiliSuspendService;
 use App\Services\DownloadFilterService;
 use App\Services\DownloadVideoService;
+use App\Services\MediaProbeService;
 use App\Services\SettingsService;
 use Carbon\Carbon;
 use Log;
@@ -21,7 +22,8 @@ class DownloadVideoPartFileAction
         public DownloadFilterService $downloadFilterService,
         public SettingsService $settingsService,
         public BilibiliSuspendService $bilibiliSuspendService,
-        public DownloadVideoService $downloadVideoService
+        public DownloadVideoService $downloadVideoService,
+        public MediaProbeService $mediaProbeService
     ) {
 
     }
@@ -80,7 +82,7 @@ class DownloadVideoPartFileAction
             }
             Log::info('download video output', ['video_id' => $video->id, 'part' => $videoPart->page, 'output' => $output]);
             Log::info('download video success', ['video_id' => $video->id, 'part' => $videoPart->page, 'savePath' => $savePath]);
-            $this->updateVideoPartDownloaded($videoPart, $savePath);
+            $this->updateVideoPartDownloaded($videoPart, $savePath, true);
 
             event(new VideoPartDownloaded($videoPart));
         }
@@ -108,7 +110,10 @@ class DownloadVideoPartFileAction
         return [$output, $result];
     }
 
-    public function updateVideoPartDownloaded(VideoPart $videoPart, string $savePath): void
+    /**
+     * @param bool $freshDownload 本次是否新下载的文件（是则强制重新读取媒体信息）
+     */
+    public function updateVideoPartDownloaded(VideoPart $videoPart, string $savePath, bool $freshDownload = false): void
     {
         $video = Video::where('id', $videoPart->video_id)->first();
         if (is_file($savePath)) {
@@ -119,6 +124,7 @@ class DownloadVideoPartFileAction
 
             $videoPart->video_downloaded_at = Carbon::createFromTimestamp(filectime($savePath));
             $videoPart->video_download_path = get_relative_path($savePath);
+            $this->mediaProbeService->fillVideoPart($videoPart, $freshDownload);
             $videoPart->save();
 
             // 真实下载时去更新视频的下载时间
@@ -126,6 +132,7 @@ class DownloadVideoPartFileAction
         } else {
             $videoPart->video_downloaded_at = null;
             $videoPart->video_download_path = null;
+            $videoPart->media_info          = null;
             $videoPart->save();
         }
 
