@@ -7,6 +7,7 @@ use App\Models\Video;
 use App\Models\VideoPart;
 use App\Services\DownloadQueueService;
 use App\Services\DownloadVideoService;
+use App\Services\MediaProbeService;
 use App\Services\VideoManager\Contracts\VideoServiceInterface;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -120,6 +121,9 @@ class VideoService implements VideoServiceInterface
 
     public function getAllPartsVideoForUser(Video $video): array
     {
+        /** @var MediaProbeService $mediaProbeService */
+        $mediaProbeService = app(MediaProbeService::class);
+
         if ($video->isAudio()) {
             $audioPart = $video->audioPart;
             if (! $audioPart) {
@@ -132,6 +136,7 @@ class VideoService implements VideoServiceInterface
                 'url'        => $audioPart->audio_download_url,
                 'title'      => $video->title,
                 'downloaded' => (bool) $audioPart->audio_download_path,
+                'media_info' => $audioPart->audio_download_path ? $mediaProbeService->fillAudioPart($audioPart) : null,
             ]];
         }
 
@@ -143,6 +148,7 @@ class VideoService implements VideoServiceInterface
                 'url'        => $videoPart['video_download_url'] ?: null,
                 'title'      => $videoPart['part'] ?? 'P' . $videoPart['page'],
                 'downloaded' => (bool) $videoPart['video_download_path'],
+                'media_info' => $videoPart['video_download_path'] ? $mediaProbeService->fillVideoPart($videoPart) : null,
             ];
         }
 
@@ -232,6 +238,7 @@ class VideoService implements VideoServiceInterface
             app(DownloadVideoService::class)->deleteVideoPartFile($videoPart);
             $videoPart->video_download_path = null;
             $videoPart->video_downloaded_at = null;
+            $videoPart->media_info          = null;
             $videoPart->save();
         });
 
@@ -245,6 +252,7 @@ class VideoService implements VideoServiceInterface
             }
             $audioPart->audio_download_path = null;
             $audioPart->audio_downloaded_at = null;
+            $audioPart->media_info          = null;
             $audioPart->save();
         }
     }

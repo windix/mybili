@@ -6,6 +6,7 @@ use App\Models\AudioPart;
 use App\Models\Video;
 use App\Services\BilibiliSuspendService;
 use App\Services\DownloadVideoService;
+use App\Services\MediaProbeService;
 use App\Services\SettingsService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
@@ -15,7 +16,8 @@ class DownloadAudioPartFileAction
     public function __construct(
         public SettingsService $settingsService,
         public BilibiliSuspendService $bilibiliSuspendService,
-        public DownloadVideoService $downloadVideoService
+        public DownloadVideoService $downloadVideoService,
+        public MediaProbeService $mediaProbeService
     ) {
     }
 
@@ -47,7 +49,7 @@ class DownloadAudioPartFileAction
         }
 
         Log::info('Download audio success', ['sid' => $audioPart->sid, 'savePath' => $savePath]);
-        $this->updateAudioPartDownloaded($audioPart, $savePath);
+        $this->updateAudioPartDownloaded($audioPart, $savePath, true);
     }
 
     protected function execDownloadAudio(string $url, string $savePath): array
@@ -97,17 +99,22 @@ class DownloadAudioPartFileAction
         return null;
     }
 
-    public function updateAudioPartDownloaded(AudioPart $audioPart, string $savePath): void
+    /**
+     * @param bool $freshDownload 本次是否新下载的文件（是则强制重新读取媒体信息）
+     */
+    public function updateAudioPartDownloaded(AudioPart $audioPart, string $savePath, bool $freshDownload = false): void
     {
         $audioDownloadedNum = 0;
         if (is_file($savePath)) {
             $audioPart->audio_downloaded_at = Carbon::createFromTimestamp(filectime($savePath));
             $audioPart->audio_download_path = get_relative_path($savePath);
+            $this->mediaProbeService->fillAudioPart($audioPart, $freshDownload);
             $audioPart->save();
             $audioDownloadedNum = 1;
         } else {
             $audioPart->audio_downloaded_at = null;
             $audioPart->audio_download_path = null;
+            $audioPart->media_info          = null;
             $audioPart->save();
             $audioDownloadedNum = 0;
         }
