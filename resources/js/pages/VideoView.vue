@@ -59,9 +59,15 @@
                     <div>
                         <h2 class="text-2xl font-bold text-gray-800 mb-2 leading-tight">{{ videoInfo.title }}</h2>
                         <div class="w-16 h-1 bg-gradient-to-r from-pink-500 to-purple-600 rounded-full"></div>
-                        <div v-if="mediaInfoSegments.length"
+                        <div v-if="mediaInfoSegments.length || currentPart?.quality_name || currentPart?.quality_status === 'downgraded'"
                             class="mt-3 flex flex-wrap items-center gap-1.5 text-xs text-gray-600">
                             <span class="text-gray-500">{{ t('video.mediaInfoLabel') }}</span>
+                            <span v-if="currentPart?.quality_name"
+                                class="bg-blue-50 text-blue-700 rounded px-2 py-0.5">{{ currentPart.quality_name }}</span>
+                            <span v-if="currentPart?.quality_status === 'downgraded'"
+                                class="bg-red-100 text-red-700 rounded px-2 py-0.5"
+                                :title="t('video.qualityDowngradedTitle', { names: (currentPart.missing_quality_names ?? []).join('、') })">
+                                {{ t('video.qualityDowngraded') }}</span>
                             <span v-for="segment in mediaInfoSegments" :key="segment"
                                 class="bg-gray-100 rounded px-2 py-0.5">{{ segment }}</span>
                         </div>
@@ -149,7 +155,7 @@
 
                     <!-- Download Actions（音频稿件隐藏「更新弹幕」） -->
                     <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-4 border-t border-gray-200/50"
-                        :class="isAudioVideo ? 'xl:grid-cols-4' : 'xl:grid-cols-5'">
+                        :class="isAudioVideo ? 'xl:grid-cols-4' : 'xl:grid-cols-6'">
                         <!-- Download Video Button -->
                         <button @click="downloadVideo"
                             class="flex flex-col items-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200/50 rounded-xl hover:from-blue-100 hover:to-blue-150 hover:border-blue-300/50 transition-all duration-300 group hover:shadow-md">
@@ -196,6 +202,18 @@
                         </button>
 
 
+
+                        <!-- Redownload with current quality preference -->
+                        <button v-if="!isAudioVideo" type="button" @click="redownloadCurrentVideo"
+                            :disabled="redownloading || !videoInfo?.video_parts?.some(p => p.downloaded)"
+                            class="flex flex-col items-center p-4 bg-gradient-to-br from-amber-50 to-orange-100 border border-amber-200/50 rounded-xl hover:from-amber-100 hover:to-orange-100 hover:border-amber-300/50 transition-all duration-300 group hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none">
+                            <div
+                                class="w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-600 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform duration-300">
+                                <span class="text-xl text-white">⬆️</span>
+                            </div>
+                            <span class="text-sm font-medium text-amber-800 group-hover:text-amber-900 text-center">{{
+                                redownloading ? t('common.loading') : t('video.redownload') }}</span>
+                        </button>
 
                         <button @click="openDeleteModal"
                             class="flex flex-col items-center p-4 bg-gradient-to-br from-red-50 to-rose-100 border border-red-200/50 rounded-xl hover:from-red-100 hover:to-rose-150 hover:border-red-300/50 transition-all duration-300 group hover:shadow-md">
@@ -302,7 +320,7 @@ import { formatTimestamp } from '../lib/helper';
 import Player from '../components/Player.vue';
 import Breadcrumbs from '../components/Breadcrumbs.vue';
 import type { Video, VideoPartType } from '@/api/fav';
-import { deleteVideo, getVideoDanmaku, getVideoInfo, refreshVideoDanmaku } from '@/api/video';
+import { deleteVideo, getVideoDanmaku, getVideoInfo, redownloadVideo, refreshVideoDanmaku } from '@/api/video';
 import { formatMediaInfo } from '@/lib/mediaInfo';
 
 const { t } = useI18n();
@@ -515,6 +533,24 @@ const confirmDeleteVideo = async () => {
         toast.error(t('video.deleteFailed'))
     } finally {
         deletingVideo.value = false
+    }
+}
+
+const redownloading = ref(false)
+
+const redownloadCurrentVideo = async () => {
+    if (!videoInfo.value) return
+    if (!confirm(t('video.redownloadConfirm'))) return
+
+    redownloading.value = true
+    try {
+        const res = await redownloadVideo(Number(videoInfo.value.id))
+        toast.success(t('video.redownloadQueued', { count: res.queued ?? 0 }))
+    } catch (error) {
+        console.error(error)
+        toast.error(t('video.redownloadFailed'))
+    } finally {
+        redownloading.value = false
     }
 }
 

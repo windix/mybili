@@ -85,6 +85,30 @@
                         </div>
                     </div>
 
+                    <!-- Quality Preference -->
+                    <div class="bg-gray-50 rounded-lg p-4 space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('settings.features.maxResolution') }}</label>
+                            <select v-model="videoMaxResolution"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                                <option value="unlimited">{{ t('settings.features.resolutionUnlimited') }}</option>
+                                <option value="2160">4K (2160P)</option>
+                                <option value="1440">1440P</option>
+                                <option value="1080">1080P</option>
+                                <option value="720">720P</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('settings.features.codecPreference') }}</label>
+                            <select v-model="videoCodecPreference"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                                <option value="hevc">{{ t('settings.features.codecHevc') }}</option>
+                                <option value="avc">{{ t('settings.features.codecAvc') }}</option>
+                                <option value="av1">{{ t('settings.features.codecAv1') }}</option>
+                            </select>
+                        </div>
+                    </div>
+
                     <!-- Human Readable Name -->
                     <div class="bg-gray-50 rounded-lg p-4">
                         <label class="block text-sm font-medium text-gray-700 mb-3">{{ t('settings.features.humanReadableName') }}</label>
@@ -519,6 +543,8 @@ const favTimeExclude = ref({
 });
 
 const multiPartitionDownloadEnabled = ref('on'); // off, on
+const videoMaxResolution = ref('unlimited'); // unlimited, 2160, 1440, 1080, 720
+const videoCodecPreference = ref('hevc'); // hevc, avc, av1
 const danmakuDownloadEnabled = ref('off'); // off, on
 const videoDownloadEnabled = ref('off'); // off, on
 const favoriteSyncEnabled = ref('off'); // off, on
@@ -560,6 +586,8 @@ const saveSettingHandler = () => {
     });
 
     saveSettings({
+        video_max_resolution: videoMaxResolution.value,
+        video_codec_preference: videoCodecPreference.value,
         name_exclude: nameExclude.value,
         size_exclude: sizeExclude.value,
         duration_video_exclude: durationVideoExclude.value,
@@ -624,6 +652,8 @@ onMounted(()=>{
         durationVideoPartExclude.value = data.duration_video_part_exclude;
         favTimeExclude.value = data.fav_time_exclude;
         multiPartitionDownloadEnabled.value = data.multi_partition_download_enabled;
+        videoMaxResolution.value = data.video_max_resolution ?? 'unlimited';
+        videoCodecPreference.value = data.video_codec_preference ?? 'hevc';
         danmakuDownloadEnabled.value = data.danmaku_download_enabled;
         videoDownloadEnabled.value = data.video_download_enabled;
         favoriteSyncEnabled.value = data.favorite_sync_enabled;

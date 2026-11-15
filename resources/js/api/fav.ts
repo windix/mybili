@@ -46,6 +46,10 @@ export interface VideoPartType {
     part: number
     downloaded: boolean
     media_info?: MediaInfo | null
+    download_qn?: number | null
+    quality_name?: string | null
+    quality_status?: 'ok' | 'downgraded' | null
+    missing_quality_names?: string[]
 }
 
 export interface Video {
