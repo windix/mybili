@@ -3,6 +3,7 @@ namespace App\Services\VideoManager\Actions\Video;
 
 use App\Enums\SettingKey;
 use App\Events\VideoPartDownloaded;
+use App\Exceptions\RedownloadNotImprovedException;
 use App\Models\Video;
 use App\Models\VideoPart;
 use App\Services\BilibiliService;
@@ -32,7 +33,10 @@ class DownloadVideoPartFileAction
 
     }
 
-    public function execute(VideoPart $videoPart): void
+    /**
+     * @param bool $redownload 按当前偏好重新下载：先下到临时文件，未被降级才替换原文件
+     */
+    public function execute(VideoPart $videoPart, bool $redownload = false): void
     {
         $video = $videoPart->video;
         if (video_has_invalid($video->toArray())) {
@@ -54,6 +58,10 @@ class DownloadVideoPartFileAction
         $url = config('services.bilibili.id_type') == 'bv' ? sprintf('https://www.bilibili.com/video/%s/', $video->bvid) : sprintf('https://www.bilibili.com/video/av%s/', $video->id);
 
         $filePath = $this->downloadVideoService->getVideoPartValidFilePath($videoPart);
+        if ($redownload) {
+            $this->redownload($videoPart, $video, $url, $filePath);
+            return;
+        }
         if ($filePath) {
             $this->updateVideoPartDownloaded($videoPart, $filePath);
             Log::info('video file already exists', ['video_id' => $video->id, 'part' => $videoPart->page, 'filePath' => $filePath]);
@@ -119,6 +127,49 @@ class DownloadVideoPartFileAction
     /**
      * @param bool $freshDownload 本次是否新下载的文件（是则强制重新读取媒体信息）
      */
+    protected function redownload(VideoPart $videoPart, Video $video, string $url, ?string $existingPath): void
+    {
+        $festivalJumpUrl = $this->bilibiliService->getVideoFestivalJumpUrl($video->id);
+        if ($festivalJumpUrl) {
+            $url = $festivalJumpUrl;
+        }
+        $this->downloadVideoService->createDownloadDirectory();
+
+        $finalPath = $existingPath ?: $this->downloadVideoService->buildVideoPartFilePath($videoPart);
+        $tmpPath   = preg_replace('/\.mp4$/', '.redownload.mp4', $finalPath);
+        // 残留的临时文件会让 yt-dlp 认为“已下载”而跳过，必须先删除
+        @unlink($tmpPath);
+        @unlink(self::infoJsonPath($tmpPath));
+
+        Log::info('redownload video', ['video_id' => $video->id, 'part' => $videoPart->page, 'tmpPath' => $tmpPath]);
+        [$output, $result] = $this->execDownloadVideo($url, $tmpPath, $videoPart->page);
+        if ($result != 0) {
+            @unlink($tmpPath);
+            throw new \Exception("下载异常:\n" . implode('', $output));
+        }
+
+        $probe = $videoPart->replicate();
+        $this->recordQuality($probe, $tmpPath, $output);
+
+        if ($probe->quality_status === 'downgraded') {
+            @unlink($tmpPath);
+            $names = array_map(
+                fn ($item) => is_int($item) ? ($this->downloadQualityInspector->qualityName($item) ?? (string) $item) : $item,
+                $probe->missing_qualities ?? []
+            );
+            throw new RedownloadNotImprovedException(sprintf('重新下载仍被降级（缺少 %s），可能是 cookie 未生效，已保留原文件', implode('、', $names)));
+        }
+
+        rename($tmpPath, $finalPath);
+        foreach (['download_qn', 'download_format_id', 'quality_status', 'missing_qualities'] as $column) {
+            $videoPart->{$column} = $probe->{$column};
+        }
+        Log::info('redownload video success', ['video_id' => $video->id, 'part' => $videoPart->page, 'savePath' => $finalPath]);
+        $this->updateVideoPartDownloaded($videoPart, $finalPath, true);
+
+        event(new VideoPartDownloaded($videoPart));
+    }
+
     /**
      * 执行 yt-dlp 命令（测试中可替换）
      *

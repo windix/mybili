@@ -72,7 +72,7 @@ class ProcessDownloadQueue extends Command
                 } else {
                     $videoPart = VideoPart::find($task->video_part_id);
                     if ($videoPart) {
-                        DownloadVideoJob::dispatch($videoPart);
+                        DownloadVideoJob::dispatch($videoPart, (bool) $task->redownload);
                         $dispatched++;
                         Log::info("Dispatched DownloadVideoJob", ['video_part_id' => $task->video_part_id]);
                     } else {
