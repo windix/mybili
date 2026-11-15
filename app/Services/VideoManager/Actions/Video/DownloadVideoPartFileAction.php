@@ -8,9 +8,11 @@ use App\Models\VideoPart;
 use App\Services\BilibiliService;
 use App\Services\BilibiliSuspendService;
 use App\Services\DownloadFilterService;
+use App\Services\DownloadQualityInspector;
 use App\Services\DownloadVideoService;
 use App\Services\MediaProbeService;
 use App\Services\SettingsService;
+use App\Services\VideoFormatSelector;
 use Carbon\Carbon;
 use Log;
 
@@ -23,7 +25,9 @@ class DownloadVideoPartFileAction
         public SettingsService $settingsService,
         public BilibiliSuspendService $bilibiliSuspendService,
         public DownloadVideoService $downloadVideoService,
-        public MediaProbeService $mediaProbeService
+        public MediaProbeService $mediaProbeService,
+        public VideoFormatSelector $videoFormatSelector,
+        public DownloadQualityInspector $downloadQualityInspector
     ) {
 
     }
@@ -82,6 +86,7 @@ class DownloadVideoPartFileAction
             }
             Log::info('download video output', ['video_id' => $video->id, 'part' => $videoPart->page, 'output' => $output]);
             Log::info('download video success', ['video_id' => $video->id, 'part' => $videoPart->page, 'savePath' => $savePath]);
+            $this->recordQuality($videoPart, $savePath, $output);
             $this->updateVideoPartDownloaded($videoPart, $savePath, true);
 
             event(new VideoPartDownloaded($videoPart));
@@ -90,15 +95,16 @@ class DownloadVideoPartFileAction
 
     protected function execDownloadVideo(string $url, string $savePath, int $page): array
     {
+        $formatArgs = $this->videoFormatSelector->fromSettings();
         if (config('services.bilibili.ignore_cookies')) {
-            $command = sprintf('yt-dlp_linux -f "bestvideo+bestaudio/best" --playlist-items %s -o %s %s', escapeshellarg($page), escapeshellarg($savePath), escapeshellarg($url));
+            $command = sprintf('yt-dlp_linux %s --write-info-json --playlist-items %s -o %s %s', $formatArgs, escapeshellarg($page), escapeshellarg($savePath), escapeshellarg($url));
         } else {
             // 写入cookie到文件
             $cookiePath = storage_path('app/cookie.txt');
             file_put_contents($cookiePath, $this->settingsService->get(SettingKey::COOKIES_CONTENT));
-            $command = sprintf('yt-dlp_linux -f "bestvideo+bestaudio/best" --playlist-items %s --cookies=%s -o %s %s', escapeshellarg($page), escapeshellarg($cookiePath), escapeshellarg($savePath), escapeshellarg($url));
+            $command = sprintf('yt-dlp_linux %s --write-info-json --playlist-items %s --cookies=%s -o %s %s', $formatArgs, escapeshellarg($page), escapeshellarg($cookiePath), escapeshellarg($savePath), escapeshellarg($url));
         }
-        exec($command, $output, $result);
+        [$output, $result] = $this->runYtDlp($command);
 
         if ($result != 0) {
             $msg = implode('', $output);
@@ -113,6 +119,50 @@ class DownloadVideoPartFileAction
     /**
      * @param bool $freshDownload 本次是否新下载的文件（是则强制重新读取媒体信息）
      */
+    /**
+     * 执行 yt-dlp 命令（测试中可替换）
+     *
+     * @return array{0: array, 1: int}
+     */
+    protected function runYtDlp(string $command): array
+    {
+        exec($command . ' 2>&1', $output, $result);
+
+        return [$output, $result];
+    }
+
+    public static function infoJsonPath(string $savePath): string
+    {
+        return preg_replace('/\.mp4$/', '.info.json', $savePath);
+    }
+
+    /**
+     * 根据 info-json 与 yt-dlp 输出记录实际档位并判定是否被降级（不保存，由调用方保存）
+     */
+    public function recordQuality(VideoPart $videoPart, string $savePath, array $output): void
+    {
+        $infoPath = self::infoJsonPath($savePath);
+        $parsed   = ['qn' => null, 'format_id' => null];
+        if (is_file($infoPath)) {
+            $info = json_decode((string) file_get_contents($infoPath), true);
+            if (is_array($info)) {
+                $parsed = $this->downloadQualityInspector->parseInfoJson($info);
+            }
+            @unlink($infoPath);
+        }
+
+        $missing = $this->downloadQualityInspector->parseMissingFormats(implode("\n", $output));
+
+        $videoPart->download_qn        = $parsed['qn'];
+        $videoPart->download_format_id = $parsed['format_id'];
+        $videoPart->missing_qualities  = $missing ?: null;
+        $videoPart->quality_status     = $this->downloadQualityInspector->judge(
+            $parsed['qn'],
+            $missing,
+            $this->videoFormatSelector->currentMaxResolution()
+        );
+    }
+
     public function updateVideoPartDownloaded(VideoPart $videoPart, string $savePath, bool $freshDownload = false): void
     {
         $video = Video::where('id', $videoPart->video_id)->first();

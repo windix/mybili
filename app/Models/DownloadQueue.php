@@ -18,7 +18,11 @@ class DownloadQueue extends Model
     protected $fillable = [
         'type', 'video_id', 'video_part_id',
         'status', 'priority', 'retry_count', 'error_msg',
-        'unique_key', 'scheduled_at', 'completed_at',
+        'unique_key', 'scheduled_at', 'completed_at', 'redownload',
+    ];
+
+    protected $casts = [
+        'redownload' => 'boolean',
     ];
 
     public const TYPE_VIDEO = 'video';

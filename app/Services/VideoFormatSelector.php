@@ -33,9 +33,14 @@ class VideoFormatSelector
     public function fromSettings(): string
     {
         return $this->buildFormatArgs(
-            (string) ($this->settingsService->get(SettingKey::VIDEO_MAX_RESOLUTION->value) ?: self::DEFAULT_RESOLUTION),
+            $this->currentMaxResolution(),
             (string) ($this->settingsService->get(SettingKey::VIDEO_CODEC_PREFERENCE->value) ?: self::DEFAULT_CODEC)
         );
+    }
+
+    public function currentMaxResolution(): string
+    {
+        return (string) ($this->settingsService->get(SettingKey::VIDEO_MAX_RESOLUTION->value) ?: self::DEFAULT_RESOLUTION);
     }
 
     public function buildFormatArgs(string $maxResolution, string $codec): string
