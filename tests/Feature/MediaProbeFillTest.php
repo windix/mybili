@@ -113,6 +113,22 @@ class MediaProbeFillTest extends TestCase
         $this->assertSame(320, $part->fresh()->media_info['video']['width']);
     }
 
+    public function test_fill_returns_info_when_save_fails(): void
+    {
+        $abs = self::makeTestMp4('videos/test-savefail-' . uniqid() . '.mp4');
+        if (! $abs) {
+            $this->markTestSkipped('ffmpeg/ffprobe not available');
+        }
+        $this->createdFiles[] = $abs;
+        $part = Mockery::mock(VideoPart::class)->makePartial();
+        $part->video_download_path = get_relative_path($abs);
+        $part->shouldReceive('save')->andThrow(new \RuntimeException('database is locked'));
+
+        $result = app(MediaProbeService::class)->fillVideoPart($part);
+
+        $this->assertSame(320, $result['video']['width']);
+    }
+
     public function test_fill_audio_part_probes_and_saves(): void
     {
         $abs = self::makeTestMp4('videos/au-test-' . uniqid() . '.mp3', true);

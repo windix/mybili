@@ -3,6 +3,7 @@ namespace App\Services;
 
 use App\Models\AudioPart;
 use App\Models\VideoPart;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -28,7 +29,7 @@ class MediaProbeService
         $info = $this->probe($absPath);
         if ($info) {
             $part->media_info = $info;
-            $part->save();
+            $this->saveQuietly($part);
         }
 
         return $info;
@@ -47,10 +48,22 @@ class MediaProbeService
         $info = $this->probe($absPath);
         if ($info) {
             $part->media_info = $info;
-            $part->save();
+            $this->saveQuietly($part);
         }
 
         return $info;
+    }
+
+    /**
+     * 保存失败（如 SQLite 锁）只记日志，不影响页面请求/下载流程
+     */
+    private function saveQuietly(Model $part): void
+    {
+        try {
+            $part->save();
+        } catch (\Throwable $e) {
+            Log::warning('Failed to save media_info', ['model' => $part::class, 'id' => $part->getKey(), 'error' => $e->getMessage()]);
+        }
     }
 
     /**
